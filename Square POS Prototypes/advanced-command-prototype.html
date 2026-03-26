@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1100">
+  <title>Square POS — Advanced Command Prototype</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #d8d8d8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      padding: 24px;
+      gap: 14px;
+    }
+
+    .proto-label {
+      color: rgba(0,0,0,0.38);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .proto-badge {
+      background: rgba(200,120,0,0.12);
+      color: #a06000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 3px 9px;
+      border-radius: 5px;
+      text-transform: uppercase;
+    }
+
+    /* ────── DEVICE FRAME ────── */
+    .device {
+      width: 1024px;
+      height: 768px;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.10),
+        0 24px 64px rgba(0,0,0,0.22),
+        0 4px 12px rgba(0,0,0,0.10);
+      transition: box-shadow 0.4s;
+    }
+    .device.guided {
+      box-shadow:
+        0 0 0 4px #22c55e,
+        0 24px 64px rgba(0,0,0,0.22),
+        0 4px 12px rgba(0,0,0,0.10);
+    }
+
+    /* ────── POS LAYOUT ────── */
+    .pos-layout { display: flex; flex-direction: column; height: 100%; }
+
+    /* ────── STATUS BAR ────── */
+    .status-bar {
+      height: 36px;
+      background: #f7f7f7;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid #e8e8e8;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .s-time-main { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+    .s-date      { font-size: 12px; color: #999; }
+    .s-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .s-battery-pct { font-size: 12px; color: #1a1a1a; font-weight: 500; }
+
+    /* ────── MAIN AREA ────── */
+    .pos-main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ────── ITEMS PANEL ────── */
+    .items-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    /* ────── CATEGORY / SEARCH BAR ────── */
+    .cats-bar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      border-bottom: 1px solid #ebebeb;
+      flex-shrink: 0;
+      gap: 2px;
+      position: relative;
+      z-index: 20;
+    }
+    .cat {
+      padding: 0 13px;
+      height: 100%;
+      font-size: 14px;
+      font-weight: 500;
+      color: #999;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .cat.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 600; }
+
+    .cats-bar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Search pill (collapsed = icon only, expanded = pill with text) ── */
+    .search-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 34px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 20px;
+      padding: 0 10px;
+      background: #fff;
+      cursor: pointer;
+      overflow: hidden;
+      transition:
+        width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.2s,
+        box-shadow 0.2s;
+      width: 36px;          /* collapsed = icon only */
+      flex-shrink: 0;
+      outline: none;
+    }
+    .search-pill:hover {
+      border-color: #c0c0c0;
+    }
+    .search-pill.open {
+      width: 220px;
+      border-color: #1a1a1a;
+      box-shadow: 0 0 0 3px rgba(0,0,0,0.07);
+    }
+    .search-pill-icon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      color: #666;
+    }
+    .search-pill-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1a1a1a;
+      background: transparent;
+      width: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s 0.1s, width 0s;
+      white-space: nowrap;
+    }
+    .search-pill.open .search-pill-input {
+      width: auto;
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Search dropdown with suggestion pills ── */
+    .search-dropdown {
+      position: absolute;
+      top: 54px;
+      right: 14px;
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 16px;
+      padding: 14px 16px 16px;
+      width: 340px;
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.13),
+        0 2px 8px rgba(0,0,0,0.07);
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+      transform-origin: top right;
+      transition: opacity 0.22s, transform 0.22s;
+      pointer-events: none;
+      z-index: 300;
+    }
+    .search-dropdown.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+
+    .sd-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #bbb;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .sd-label-dot {
+      width: 6px; height: 6px;
+      background: #22c55e;
+      border-radius: 50%;
+    }
+
+    .sd-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sd-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      border: 1.5px solid #e8e8e8;
+      border-radius: 20px;
+      padding: 0 14px 0 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+      cursor: pointer;
+      background: #fafafa;
+      transition: background 0.14s, border-color 0.14s, color 0.14s, transform 0.12s;
+      user-select: none;
+    }
+    .sd-pill:hover {
+      background: #f0f0f0;
+      border-color: #d0d0d0;
+    }
+    .sd-pill:active { transform: scale(0.97); }
+
+    .sd-pill.featured {
+      border-color: rgba(34,197,94,0.4);
+      background: rgba(34,197,94,0.06);
+      color: #15803d;
+    }
+    .sd-pill.featured:hover {
+      background: rgba(34,197,94,0.12);
+      border-color: rgba(34,197,94,0.6);
+    }
+
+    .sd-pill-icon { font-size: 14px; line-height: 1; }
+
+    .sd-divider {
+      border: none;
+      border-top: 1px solid #f0f0f0;
+      margin: 12px 0 10px;
+    }
+    .sd-more-label {
+      font-size: 11px;
+      color: #ccc;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    /* Items grid */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 10px 12px;
+      overflow-y: auto;
+      flex: 1;
+      background: #f4f4f4;
+      align-content: start;
+    }
+    .item {
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      min-height: 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: filter 0.12s;
+    }
+    .item:hover  { filter: brightness(0.97); }
+    .item:active { filter: brightness(0.93); }
+    .iname  { font-size: 13px; font-weight: 600; line-height: 1.3; }
+    .iprice { font-size: 12px; margin-top: 3px; opacity: 0.6; }
+    .cream { background: #f0e5d3; color: #3a2010; }
+    .photo { color: rgba(255,255,255,0.92); }
+    .photo .iprice { opacity: 0.5; }
+    .p-dk-brown  { background: linear-gradient(145deg, #3d2010, #1e0e06); }
+    .p-dk-warm   { background: linear-gradient(145deg, #2e1c0c, #160e04); }
+    .p-dk-hot    { background: linear-gradient(145deg, #2e1808, #140c04); }
+    .p-dk-cool   { background: linear-gradient(145deg, #0e1c30, #060e1e); }
+    .p-dk-amber  { background: linear-gradient(145deg, #2e1a08, #180e04); }
+    .p-dk-olive  { background: linear-gradient(145deg, #1a2a10, #0e180a); }
+    .p-dk-rust   { background: linear-gradient(145deg, #2a1810, #160c08); }
+    .p-dk-purple { background: linear-gradient(145deg, #1c1030, #0c0820); }
+    .p-dk-green  { background: linear-gradient(145deg, #0e2218, #061410); }
+
+    /* ────── CART ────── */
+    .cart-panel {
+      width: 256px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #e8e8e8;
+      flex-shrink: 0;
+    }
+    .cart-head {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #ebebeb;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .cart-title { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .cart-sub   { font-size: 12px; color: #999; margin-top: 2px; }
+    .cart-menu-btn {
+      background: none; border: none; cursor: pointer;
+      color: #aaa; font-size: 20px; line-height: 1; padding: 0; margin-top: -1px;
+    }
+    .cart-list { flex: 1; padding: 4px 16px; overflow-y: auto; }
+    .cart-row {
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .cart-row:last-child { border-bottom: none; }
+    .cart-row:hover { background: #fafafa; }
+    .cart-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 0 4px;
+    }
+    .cname  { font-size: 13px; font-weight: 600; color: #1a1a1a; flex: 1; }
+    .cmod   { font-size: 11px; color: #aaa; margin-top: 2px; padding: 0 4px; }
+    .cprice { font-size: 13px; color: #1a1a1a; font-weight: 500; white-space: nowrap; }
+    .cdiscount { font-size: 11px; color: #16a34a; font-weight: 600; margin-top: 2px; padding: 0 4px; display: none; }
+
+    .cart-totals {
+      padding: 10px 16px 6px;
+      border-top: 1px solid #ebebeb;
+    }
+    .trow { display: flex; justify-content: space-between; font-size: 13px; color: #777; padding: 3px 0; }
+    .trow.grand {
+      font-size: 16px; font-weight: 700; color: #1a1a1a;
+      border-top: 1px solid #e8e8e8; margin-top: 6px; padding-top: 8px;
+    }
+    .pay-btn {
+      margin: 8px 14px 14px;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      width: calc(100% - 28px);
+      letter-spacing: 0.01em;
+      transition: opacity 0.12s;
+    }
+    .pay-btn:hover { opacity: 0.85; }
+
+    /* ────── NAV BAR ────── */
+    .nav-bar {
+      height: 52px;
+      background: #ffffff;
+      border-top: 1px solid #e8e8e8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .nav-item {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 7px 16px; border-radius: 20px;
+      font-size: 13px; font-weight: 500; color: #bbb; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-item.active { background: #efefef; color: #1a1a1a; }
+    .nav-icon { font-size: 17px; line-height: 1; }
+
+    /* ────── GUIDED SESSION BAR ────── */
+    .guided-bar-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .guided-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 52px;
+      background: #111;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 10px;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      z-index: 200;
+    }
+    .guided-bar.show { transform: translateY(0); }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.75); }
+    }
+    .guided-dot {
+      width: 8px; height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse-dot 1.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .guided-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      flex: 1;
+    }
+    .guided-label span { color: #22c55e; font-weight: 700; }
+
+    .end-btn {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.12s;
+    }
+    .end-btn:hover { opacity: 0.85; }
+
+    /* ────── DIM OVERLAY ────── */
+    .dim {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0);
+      pointer-events: none;
+      transition: background 0.35s;
+      z-index: 50;
+    }
+    .dim.on { background: rgba(0,0,0,0.32); pointer-events: all; }
+
+    /* ────── AI HIGHLIGHT RING ────── */
+    @keyframes ai-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(34,197,94,0.55), 0 0 0 0   rgba(34,197,94,0.25); }
+      60%  { box-shadow: 0 0 0 5px rgba(34,197,94,0.30), 0 0 0 10px rgba(34,197,94,0.08); }
+      100% { box-shadow: 0 0 0 0   rgba(34,197,94,0),    0 0 0 0   rgba(34,197,94,0); }
+    }
+    .ai-highlight {
+      animation: ai-ring 1.6s ease-out infinite !important;
+      outline: 2px solid #22c55e !important;
+      outline-offset: 3px !important;
+      position: relative;
+      z-index: 60 !important;
+    }
+    .cart-row.ai-highlight { background: rgba(34,197,94,0.06) !important; }
+
+    /* ────── AI TOOLTIP ────── */
+    .ai-tooltip {
+      position: absolute;
+      background: #111;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.5;
+      padding: 9px 14px;
+      border-radius: 10px;
+      max-width: 240px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 300;
+    }
+    .ai-tooltip::before {
+      content: '';
+      position: absolute;
+      width: 8px; height: 8px;
+      background: #111;
+      transform: rotate(45deg);
+    }
+    .ai-tooltip.tip-left::before  { right: -4px; top: 12px; }
+    .ai-tooltip.show { opacity: 1; transform: translateY(0); }
+    .tip-header { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .ai-badge {
+      background: #22c55e;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 5px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* ────── DIALOG CARD ────── */
+    .dialog-wrap {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .dialog-wrap.show { opacity: 1; pointer-events: all; }
+    .dialog-card {
+      background: #fff;
+      border-radius: 18px;
+      width: 360px;
+      padding: 28px 26px 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.10);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .dialog-wrap.show .dialog-card { transform: scale(1) translateY(0); }
+
+    .dialog-ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34,197,94,0.10);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 20px;
+      padding: 4px 12px 4px 8px;
+      margin-bottom: 14px;
+    }
+    .dialog-ai-dot { width: 7px; height: 7px; background: #22c55e; border-radius: 50%; }
+    .dialog-ai-text { font-size: 11px; font-weight: 700; color: #16a34a; letter-spacing: 0.04em; }
+
+    .dialog-h { font-size: 19px; font-weight: 700; color: #1a1a1a; line-height: 1.25; margin-bottom: 8px; }
+    .dialog-p { font-size: 13px; color: #777; line-height: 1.6; margin-bottom: 22px; }
+
+    .dialog-btns { display: flex; flex-direction: column; gap: 9px; }
+    .btn-primary {
+      background: #1a1a1a; color: #fff; border: none; border-radius: 12px;
+      padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: opacity 0.12s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-secondary {
+      background: none; border: none; color: #aaa; font-size: 13px;
+      font-weight: 500; cursor: pointer; padding: 8px; font-family: inherit; transition: color 0.12s;
+    }
+    .btn-secondary:hover { color: #555; }
+
+    /* ────── ACTION MENU ────── */
+    .action-menu {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 14px;
+      width: 200px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+      opacity: 0;
+      transform: scale(0.95) translateY(-6px);
+      transform-origin: top right;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 250;
+    }
+    .action-menu.show { opacity: 1; transform: scale(1) translateY(0); pointer-events: all; }
+    .action-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; font-size: 13px; font-weight: 500; color: #1a1a1a;
+      cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.12s;
+    }
+    .action-item:last-child { border-bottom: none; }
+    .action-item:hover { background: #f8f8f8; }
+    .action-item.highlighted { background: rgba(34,197,94,0.08); color: #16a34a; }
+    .action-item.highlighted:hover { background: rgba(34,197,94,0.14); }
+    .action-ico { font-size: 15px; width: 20px; text-align: center; }
+
+    /* ────── DISCOUNT PANEL ────── */
+    .discount-panel {
+      position: absolute;
+      top: 36px; right: 0; bottom: 52px;
+      width: 300px;
+      background: #fff;
+      border-left: 1px solid #e8e8e8;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      z-index: 220;
+    }
+    .discount-panel.show { transform: translateX(0); }
+    .dp-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid #ebebeb;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .dp-back {
+      background: none; border: none; cursor: pointer;
+      color: #aaa; font-size: 18px; padding: 0; line-height: 1;
+    }
+    .dp-back:hover { color: #555; }
+    .dp-title { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .dp-item  { font-size: 12px; color: #aaa; margin-top: 2px; }
+    .dp-section-title {
+      font-size: 11px; font-weight: 700; color: #bbb;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 14px 18px 6px;
+    }
+    .discount-list { flex: 1; overflow-y: auto; }
+    .discount-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; border-bottom: 1px solid #f0f0f0;
+      cursor: pointer; transition: background 0.12s;
+    }
+    .discount-row:hover { background: #f9f9f9; }
+    .discount-row:last-child { border-bottom: none; }
+    .discount-row.highlighted { background: rgba(34,197,94,0.07); }
+    .discount-row.highlighted:hover { background: rgba(34,197,94,0.12); }
+    .dr-left { flex: 1; }
+    .dr-name { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+    .dr-desc { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .dr-pct {
+      font-size: 14px; font-weight: 700; color: #1a1a1a;
+      background: #f0f0f0; border-radius: 8px; padding: 4px 10px;
+    }
+    .discount-row.highlighted .dr-pct { background: rgba(34,197,94,0.15); color: #16a34a; }
+
+    /* ────── SUCCESS TOAST ────── */
+    .success-toast {
+      position: absolute;
+      bottom: 62px; left: 50%;
+      transform: translateX(-50%) translateY(calc(100% + 20px));
+      background: #fff;
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: flex; align-items: center; gap: 9px;
+      font-size: 13px; font-weight: 600; color: #16a34a;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+      z-index: 400; pointer-events: none; white-space: nowrap;
+    }
+    .success-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ────── INTRO OVERLAY ────── */
+    .intro {
+      position: absolute; inset: 0;
+      background: rgba(8,8,10,0.94);
+      border-radius: 16px;
+      z-index: 500;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 13px; transition: opacity 0.4s;
+    }
+    .intro-chip {
+      background: rgba(34,197,94,0.14);
+      border: 1px solid rgba(34,197,94,0.28);
+      color: #22c55e; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.07em; padding: 4px 12px;
+      border-radius: 20px; text-transform: uppercase;
+    }
+    .intro-h { font-size: 24px; font-weight: 700; color: #fff; text-align: center; line-height: 1.25; }
+    .intro-p { font-size: 14px; color: rgba(255,255,255,0.48); text-align: center; max-width: 420px; line-height: 1.6; }
+    .intro-flow { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+    .flow-step {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; padding: 6px 12px; font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .flow-arrow { color: rgba(255,255,255,0.2); font-size: 14px; }
+    .start-btn {
+      background: #22c55e; color: #fff; border: none; border-radius: 12px;
+      padding: 13px 36px; font-size: 15px; font-weight: 700; cursor: pointer;
+      margin-top: 4px; font-family: inherit; transition: opacity 0.12s;
+    }
+    .start-btn:hover { opacity: 0.88; }
+    .intro-hint { font-size: 12px; color: rgba(255,255,255,0.18); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="proto-label">
+  <span class="proto-badge">Prototype</span>
+  Advanced Command · Use Case: Apply a Discount — Guided Session
+</div>
+
+<div class="device" id="device">
+
+  <!-- ─── INTRO OVERLAY ─── -->
+  <div class="intro" id="intro">
+    <div class="intro-chip">Advanced Command · Phase 2 Guided Session</div>
+    <div class="intro-h">Apply a Discount<br>AI-Guided Walkthrough</div>
+    <div class="intro-p">Staff tap the search bar in the category header, then select a common how-to. Square AI offers a step-by-step guided session with live UI highlights.</div>
+    <div class="intro-flow">
+      <div class="flow-step">🔍 Tap search</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">💬 Pick a how-to</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">✦ Live highlights</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">✓ Done</div>
+    </div>
+    <button class="start-btn" onclick="startProto()">Start prototype →</button>
+    <div class="intro-hint">Scenario · Morningside Coffee · Vanessa M. · Register 1</div>
+  </div>
+
+  <div class="pos-layout">
+
+    <!-- ─── STATUS BAR ─── -->
+    <div class="status-bar">
+      <span class="s-time-main">12:37 PM</span>
+      <span class="s-date">Mon Jul 3</span>
+      <div class="s-right">
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="#1a1a1a">
+          <rect x="0"    y="8"  width="3" height="4"  rx="0.5"/>
+          <rect x="4.5"  y="5"  width="3" height="7"  rx="0.5"/>
+          <rect x="9"    y="2"  width="3" height="10" rx="0.5"/>
+          <rect x="13.5" y="0"  width="3" height="12" rx="0.5"/>
+        </svg>
+        <svg width="16" height="12" viewBox="0 0 24 18" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round">
+          <path d="M1.5 7C6.5 2.5 17.5 2.5 22.5 7"/>
+          <path d="M5 11c3.8-3.8 11.2-3.8 14 0"/>
+          <path d="M9 15c1.8-1.8 5.2-1.8 6 0"/>
+          <circle cx="12" cy="17.5" r="1.5" fill="#1a1a1a" stroke="none"/>
+        </svg>
+        <span class="s-battery-pct">100%</span>
+        <svg width="22" height="12" viewBox="0 0 26 13" fill="none">
+          <rect x="0.6" y="0.6" width="21" height="11.8" rx="2.8" stroke="#1a1a1a" stroke-width="1.2"/>
+          <rect x="22"  y="3.5" width="2.5" height="6"    rx="1.2" fill="#1a1a1a"/>
+          <rect x="2"   y="2"   width="18"  height="9"    rx="1.8" fill="#1a1a1a"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- ─── MAIN AREA ─── -->
+    <div class="pos-main">
+
+      <!-- ITEMS PANEL -->
+      <div class="items-panel">
+
+        <!-- CATEGORY + SEARCH BAR -->
+        <div class="cats-bar">
+          <button class="cat active">Drinks</button>
+          <button class="cat">Savory</button>
+          <button class="cat">Pastry</button>
+          <button class="cat">Library</button>
+          <button class="cat">Keypad</button>
+
+          <div class="cats-bar-right">
+            <!-- Search pill: collapsed by default, expands on click -->
+            <button class="search-pill" id="searchPill" onclick="toggleSearch()" aria-label="Search">
+              <span class="search-pill-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="7"/>
+                  <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+                </svg>
+              </span>
+              <input class="search-pill-input" id="searchInput" placeholder="How can I help?" readonly>
+            </button>
+          </div>
+
+          <!-- Suggestions dropdown -->
+          <div class="search-dropdown" id="searchDropdown">
+            <div class="sd-label">
+              <div class="sd-label-dot"></div>
+              Square AI FAQs
+            </div>
+            <div class="sd-pills">
+              <button class="sd-pill featured" onclick="onSelectHowTo('discount')">Add a discount</button>
+              <button class="sd-pill" onclick="onSelectHowTo('modifier')">Add modifier</button>
+              <button class="sd-pill" onclick="onSelectHowTo('printer')">Troubleshoot printer</button>
+              <button class="sd-pill" onclick="onSelectHowTo('connectivity')">Check connectivity</button>
+            </div>
+            <hr class="sd-divider">
+            <div class="sd-more-label">More topics</div>
+            <div class="sd-pills">
+              <button class="sd-pill" onclick="doNothing()">Void a sale</button>
+              <button class="sd-pill" onclick="doNothing()">Process refund</button>
+              <button class="sd-pill" onclick="doNothing()">Split payment</button>
+              <button class="sd-pill" onclick="doNothing()">Other</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ITEMS GRID -->
+        <div class="items-grid">
+          <div class="item photo p-dk-brown"><div class="iname">All drinks</div></div>
+          <div class="item photo p-dk-warm"><div class="iname">Seasonal</div></div>
+          <div class="item photo p-dk-hot"><div class="iname">Hot</div></div>
+          <div class="item photo p-dk-cool"><div class="iname">Cold</div></div>
+          <div class="item cream"><div class="iname">House coffee</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Flat white</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Fomo</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Latte</div><div class="iprice">$9.00</div></div>
+          <div class="item photo p-dk-amber"><div class="iname">Miso pumpkin</div><div class="iprice">$9.00</div></div>
+          <div class="item photo p-dk-olive"><div class="iname">Pistachio forno</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Terroir trick</div><div class="iprice">$9.00</div></div>
+          <div class="item photo p-dk-rust"><div class="iname">Tamarind cider</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Chocolate chai</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Caramel corn</div><div class="iprice">$9.00</div></div>
+          <div class="item photo p-dk-purple"><div class="iname">Violet shade</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Pour over</div><div class="iprice">$9.00</div></div>
+          <div class="item photo p-dk-green"><div class="iname">Mystic matcha</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Cold brew</div><div class="iprice">$9.00</div></div>
+          <div class="item cream"><div class="iname">Full leaf tea</div><div class="iprice">$7.50</div></div>
+          <div class="item cream"><div class="iname">Onyx delight</div><div class="iprice">$8.00</div></div>
+        </div>
+      </div>
+
+      <!-- CART -->
+      <div class="cart-panel">
+        <div class="cart-head">
+          <div>
+            <div class="cart-title">3 items</div>
+            <div class="cart-sub">For here</div>
+          </div>
+          <button class="cart-menu-btn">···</button>
+        </div>
+        <div class="cart-list">
+          <div class="cart-row" id="cartRow1" onclick="onCartRowTap()">
+            <div class="cart-row-top">
+              <div class="cname">Flat white ×2</div>
+              <div class="cprice" id="row1price">$18.00</div>
+            </div>
+            <div class="cmod">Large · Oat milk</div>
+            <div class="cdiscount" id="row1discount">10% Regular — −$1.80</div>
+          </div>
+          <div class="cart-row" id="cartRow2">
+            <div class="cart-row-top">
+              <div class="cname">Pour over</div>
+              <div class="cprice">$9.00</div>
+            </div>
+            <div class="cmod">Costa Rica Las Lajas</div>
+          </div>
+          <div class="cart-row" id="cartRow3">
+            <div class="cart-row-top">
+              <div class="cname">Latte</div>
+              <div class="cprice">$9.00</div>
+            </div>
+          </div>
+        </div>
+        <div class="cart-totals">
+          <div class="trow"><span>Subtotal</span><span id="subtotalAmt">$36.00</span></div>
+          <div class="trow" id="discountRow" style="display:none; color:#16a34a;"><span>Discount</span><span id="discountAmt">−$1.80</span></div>
+          <div class="trow"><span>Tax</span><span id="taxAmt">$1.80</span></div>
+          <div class="trow grand"><span>Total</span><span id="totalAmt">$37.80</span></div>
+        </div>
+        <button class="pay-btn">Pay</button>
+      </div>
+
+    </div><!-- /pos-main -->
+
+    <!-- NAV + GUIDED BAR -->
+    <div class="guided-bar-wrap">
+      <div class="nav-bar">
+        <div class="nav-item active">
+          <span class="nav-icon">⊞</span>
+          <span>Checkout</span>
+        </div>
+        <div class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+          </svg>
+        </div>
+        <div class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </div>
+      </div>
+      <div class="guided-bar" id="guidedBar">
+        <div class="guided-dot"></div>
+        <div class="guided-label" id="guidedLabel"><span>Square AI</span> · Guided session</div>
+        <button class="end-btn" onclick="endSession()">End session</button>
+      </div>
+    </div>
+
+  </div><!-- /pos-layout -->
+
+  <!-- DIM -->
+  <div class="dim" id="dim"></div>
+
+  <!-- ─── DIALOG ─── -->
+  <div class="dialog-wrap" id="dialogWrap">
+    <div class="dialog-card">
+      <div class="dialog-ai-badge">
+        <div class="dialog-ai-dot"></div>
+        <div class="dialog-ai-text">Square AI</div>
+      </div>
+      <div class="dialog-h">Apply a discount</div>
+      <div class="dialog-btns">
+        <button class="btn-primary" onclick="startGuided()">Show me</button>
+        <button class="btn-secondary" onclick="dismissDialog()">Later</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── AI TOOLTIP ─── -->
+  <div class="ai-tooltip tip-left" id="aiTooltip">
+    <div class="tip-header"><div class="ai-badge">Square AI</div></div>
+    <span id="tipText">Tap an item to select it.</span>
+  </div>
+
+  <!-- ─── ITEM ACTION MENU ─── -->
+  <div class="action-menu" id="actionMenu">
+    <div class="action-item" onclick="doNothing()">Edit item</div>
+    <div class="action-item" onclick="doNothing()">Remove item</div>
+    <div class="action-item" onclick="doNothing()">Add note</div>
+    <div class="action-item highlighted" id="addDiscountItem" onclick="onAddDiscountTap()">Add discount</div>
+    <div class="action-item" onclick="doNothing()">Change price</div>
+  </div>
+
+  <!-- ─── DISCOUNT PANEL ─── -->
+  <div class="discount-panel" id="discountPanel">
+    <div class="dp-head">
+      <button class="dp-back" onclick="closeDiscountPanel()">‹</button>
+      <div>
+        <div class="dp-title">Apply discount</div>
+        <div class="dp-item">Flat white ×2</div>
+      </div>
+    </div>
+    <div class="dp-section-title">Saved discounts</div>
+    <div class="discount-list">
+      <div class="discount-row highlighted" id="discount10" onclick="applyDiscount()">
+        <div class="dr-left">
+          <div class="dr-name">10% Regular</div>
+          <div class="dr-desc">Staff & loyalty discount</div>
+        </div>
+        <div class="dr-pct">10%</div>
+      </div>
+      <div class="discount-row" onclick="doNothing()">
+        <div class="dr-left"><div class="dr-name">Happy Hour</div><div class="dr-desc">Weekdays 2–4pm</div></div>
+        <div class="dr-pct">15%</div>
+      </div>
+      <div class="discount-row" onclick="doNothing()">
+        <div class="dr-left"><div class="dr-name">Friends & Family</div><div class="dr-desc">Manager approval required</div></div>
+        <div class="dr-pct">20%</div>
+      </div>
+      <div class="discount-row" onclick="doNothing()">
+        <div class="dr-left"><div class="dr-name">Custom amount</div><div class="dr-desc">Enter percentage or $</div></div>
+        <div class="dr-pct">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SUCCESS TOAST ─── -->
+  <div class="success-toast" id="successToast">
+    <span>✓</span> 10% discount applied — Flat white ×2
+  </div>
+
+</div><!-- /device -->
+
+<script>
+  let step = 0;
+  let searchOpen = false;
+
+  /* ── Intro ── */
+  function startProto() {
+    const intro = document.getElementById('intro');
+    intro.style.opacity = '0';
+    setTimeout(() => intro.style.display = 'none', 400);
+  }
+
+  /* ── Search pill toggle ── */
+  function toggleSearch() {
+    searchOpen = !searchOpen;
+    const pill = document.getElementById('searchPill');
+    const dropdown = document.getElementById('searchDropdown');
+    if (searchOpen) {
+      pill.classList.add('open');
+      dropdown.classList.add('show');
+      // Close on outside click
+      setTimeout(() => document.addEventListener('click', outsideClose), 10);
+    } else {
+      closeSearch();
+    }
+  }
+
+  function closeSearch() {
+    searchOpen = false;
+    document.getElementById('searchPill').classList.remove('open');
+    document.getElementById('searchDropdown').classList.remove('show');
+    document.removeEventListener('click', outsideClose);
+  }
+
+  function outsideClose(e) {
+    const pill = document.getElementById('searchPill');
+    const dropdown = document.getElementById('searchDropdown');
+    if (!pill.contains(e.target) && !dropdown.contains(e.target)) {
+      closeSearch();
+    }
+  }
+
+  /* ── How-to pill tap ── */
+  function onSelectHowTo(type) {
+    closeSearch();
+    if (type === 'discount') {
+      // Show dialog
+      setTimeout(() => {
+        document.getElementById('dim').classList.add('on');
+        document.getElementById('dialogWrap').classList.add('show');
+      }, 150);
+    }
+    // Other types are decorative in this prototype
+  }
+
+  /* ── Dialog ── */
+  function dismissDialog() {
+    document.getElementById('dialogWrap').classList.remove('show');
+    document.getElementById('dim').classList.remove('on');
+  }
+
+  function startGuided() {
+    document.getElementById('dialogWrap').classList.remove('show');
+    document.getElementById('dim').classList.remove('on');
+    document.getElementById('device').classList.add('guided');
+    document.getElementById('guidedBar').classList.add('show');
+    setTimeout(step1, 500);
+  }
+
+  /* ── Step 1: highlight cart row ── */
+  function step1() {
+    step = 1;
+    const row = document.getElementById('cartRow1');
+    row.classList.add('ai-highlight');
+    const tooltip = document.getElementById('aiTooltip');
+    document.getElementById('tipText').textContent = 'Tap the item you want to discount.';
+    tooltip.style.right = '266px';
+    tooltip.style.top = '200px';
+    tooltip.style.left = 'auto';
+    tooltip.classList.add('show');
+    setGuidedLabel('Step 1 of 3 — Select an item in your cart');
+  }
+
+  /* ── Cart row tap ── */
+  function onCartRowTap() {
+    if (step !== 1) return;
+    step = 2;
+    document.getElementById('cartRow1').classList.remove('ai-highlight');
+    document.getElementById('aiTooltip').classList.remove('show');
+    setTimeout(() => {
+      const menu = document.getElementById('actionMenu');
+      menu.style.right = '260px';
+      menu.style.top = '195px';
+      menu.style.left = 'auto';
+      menu.classList.add('show');
+      document.getElementById('addDiscountItem').classList.add('ai-highlight');
+      const tooltip = document.getElementById('aiTooltip');
+      document.getElementById('tipText').textContent = 'Now tap "Add discount."';
+      tooltip.style.right = '466px';
+      tooltip.style.top = '300px';
+      tooltip.style.left = 'auto';
+      tooltip.classList.add('show');
+      setGuidedLabel('Step 2 of 3 — Tap "Add discount"');
+    }, 250);
+  }
+
+  /* ── Add discount tap ── */
+  function onAddDiscountTap() {
+    if (step !== 2) return;
+    step = 3;
+    document.getElementById('addDiscountItem').classList.remove('ai-highlight');
+    document.getElementById('actionMenu').classList.remove('show');
+    document.getElementById('aiTooltip').classList.remove('show');
+    setTimeout(() => {
+      document.getElementById('discountPanel').classList.add('show');
+      document.getElementById('discount10').classList.add('ai-highlight');
+      const tooltip = document.getElementById('aiTooltip');
+      document.getElementById('tipText').textContent = 'Select a discount to apply it.';
+      tooltip.style.right = '310px';
+      tooltip.style.top = '230px';
+      tooltip.style.left = 'auto';
+      tooltip.classList.add('show');
+      setGuidedLabel('Step 3 of 3 — Choose a discount');
+    }, 300);
+  }
+
+  /* ── Apply discount ── */
+  function applyDiscount() {
+    if (step !== 3) return;
+    step = 4;
+    document.getElementById('discount10').classList.remove('ai-highlight');
+    document.getElementById('aiTooltip').classList.remove('show');
+    document.getElementById('discountPanel').classList.remove('show');
+    setTimeout(() => {
+      document.getElementById('row1price').textContent = '$16.20';
+      document.getElementById('row1discount').style.display = 'block';
+      document.getElementById('subtotalAmt').textContent = '$34.20';
+      document.getElementById('discountRow').style.display = 'flex';
+      document.getElementById('discountAmt').textContent = '−$1.80';
+      document.getElementById('taxAmt').textContent = '$1.71';
+      document.getElementById('totalAmt').textContent = '$35.91';
+      setGuidedLabel('✓ Discount applied! Great job.');
+      const toast = document.getElementById('successToast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3500);
+      setTimeout(endSession, 2800);
+    }, 350);
+  }
+
+  /* ── End session ── */
+  function endSession() {
+    document.getElementById('device').classList.remove('guided');
+    document.getElementById('guidedBar').classList.remove('show');
+    document.getElementById('aiTooltip').classList.remove('show');
+    document.getElementById('actionMenu').classList.remove('show');
+    document.getElementById('discountPanel').classList.remove('show');
+    document.querySelectorAll('.ai-highlight').forEach(el => el.classList.remove('ai-highlight'));
+    step = 0;
+  }
+
+  function closeDiscountPanel() {
+    document.getElementById('discountPanel').classList.remove('show');
+    document.getElementById('discount10').classList.remove('ai-highlight');
+    document.getElementById('aiTooltip').classList.remove('show');
+    if (step >= 3) { step = 1; setTimeout(step1, 200); }
+  }
+
+  function setGuidedLabel(text) {
+    document.getElementById('guidedLabel').innerHTML = '<span>Square AI</span> · ' + text;
+  }
+
+  function doNothing() {}
+</script>
+</body>
+</html>

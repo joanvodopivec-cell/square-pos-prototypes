@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1100">
+  <title>Square POS — Seamless Handoff Prototype</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #d8d8d8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      padding: 24px;
+      gap: 14px;
+    }
+
+    .proto-label {
+      color: rgba(0,0,0,0.38);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .proto-badge {
+      background: rgba(200,120,0,0.12);
+      color: #a06000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 3px 9px;
+      border-radius: 5px;
+      text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════
+       ACT WRAPPER — fades between acts
+    ══════════════════════════════ */
+    .act {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .act.active {
+      opacity: 1;
+      pointer-events: all;
+      position: relative;
+    }
+
+    /* ══════════════════════════════
+       ACT 1 — STAFF DEVICE (tablet)
+    ══════════════════════════════ */
+    .device {
+      width: 1024px;
+      height: 768px;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.10),
+        0 24px 64px rgba(0,0,0,0.22),
+        0 4px 12px rgba(0,0,0,0.10);
+    }
+
+    /* ────── POS LAYOUT ────── */
+    .pos-layout { display: flex; flex-direction: column; height: 100%; }
+
+    /* ────── STATUS BAR ────── */
+    .status-bar {
+      height: 36px;
+      background: #f7f7f7;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid #e8e8e8;
+      flex-shrink: 0;
+      gap: 8px;
+      position: relative;
+      z-index: 30;
+    }
+    .s-time-main { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+    .s-date      { font-size: 12px; color: #999; }
+    .s-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .s-battery-pct { font-size: 12px; color: #1a1a1a; font-weight: 500; }
+
+    /* AI working indicator — sits in status bar right */
+    .ai-working-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,0.06);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 20px;
+      padding: 3px 10px 3px 7px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      opacity: 0;
+      transform: translateY(-2px);
+      transition: opacity 0.4s, transform 0.4s;
+      white-space: nowrap;
+    }
+    .ai-working-pill.show { opacity: 1; transform: translateY(0); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ai-spinner {
+      width: 9px; height: 9px;
+      border: 1.5px solid rgba(0,0,0,0.12);
+      border-top-color: #555;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* Help button */
+    .help-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 28px;
+      background: #fff;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 20px;
+      padding: 0 12px 0 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .help-btn:hover { border-color: #bbb; background: #fafafa; }
+    .help-btn svg { flex-shrink: 0; }
+
+    /* ────── MAIN AREA ────── */
+    .pos-main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ────── ITEMS PANEL ────── */
+    .items-panel {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; background: #ffffff;
+    }
+    .cats-bar {
+      height: 44px; display: flex; align-items: center;
+      padding: 0 14px; border-bottom: 1px solid #ebebeb;
+      flex-shrink: 0; gap: 2px;
+    }
+    .cat {
+      padding: 0 13px; height: 100%; font-size: 14px; font-weight: 500;
+      color: #999; cursor: pointer; background: transparent; border: none;
+      border-bottom: 2px solid transparent; display: flex; align-items: center;
+    }
+    .cat.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 600; }
+
+    .items-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; padding: 10px 12px; overflow-y: auto;
+      flex: 1; background: #f4f4f4; align-content: start;
+    }
+    .item {
+      border-radius: 12px; padding: 12px; cursor: pointer;
+      min-height: 96px; display: flex; flex-direction: column;
+      justify-content: space-between; transition: filter 0.12s;
+    }
+    .item:hover  { filter: brightness(0.97); }
+    .iname  { font-size: 13px; font-weight: 600; line-height: 1.3; }
+    .iprice { font-size: 12px; margin-top: 3px; opacity: 0.6; }
+    .cream { background: #f0e5d3; color: #3a2010; }
+    .photo { color: rgba(255,255,255,0.92); }
+    .photo .iprice { opacity: 0.5; }
+    .p-dk-brown  { background: linear-gradient(145deg, #3d2010, #1e0e06); }
+    .p-dk-warm   { background: linear-gradient(145deg, #2e1c0c, #160e04); }
+    .p-dk-hot    { background: linear-gradient(145deg, #2e1808, #140c04); }
+    .p-dk-cool   { background: linear-gradient(145deg, #0e1c30, #060e1e); }
+    .p-dk-amber  { background: linear-gradient(145deg, #2e1a08, #180e04); }
+    .p-dk-olive  { background: linear-gradient(145deg, #1a2a10, #0e180a); }
+    .p-dk-rust   { background: linear-gradient(145deg, #2a1810, #160c08); }
+    .p-dk-purple { background: linear-gradient(145deg, #1c1030, #0c0820); }
+    .p-dk-green  { background: linear-gradient(145deg, #0e2218, #061410); }
+
+    /* ────── CART ────── */
+    .cart-panel {
+      width: 256px; background: #ffffff; display: flex;
+      flex-direction: column; border-left: 1px solid #e8e8e8; flex-shrink: 0;
+    }
+    .cart-head {
+      padding: 14px 16px 10px; border-bottom: 1px solid #ebebeb;
+      display: flex; align-items: flex-start; justify-content: space-between;
+    }
+    .cart-title { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .cart-sub   { font-size: 12px; color: #999; margin-top: 2px; }
+    .cart-menu-btn { background: none; border: none; cursor: pointer; color: #aaa; font-size: 20px; line-height: 1; }
+    .cart-list { flex: 1; padding: 4px 16px; overflow-y: auto; }
+    .cart-row { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+    .cart-row:last-child { border-bottom: none; }
+    .cart-row-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .cname  { font-size: 13px; font-weight: 600; color: #1a1a1a; flex: 1; }
+    .cmod   { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .cprice { font-size: 13px; color: #1a1a1a; font-weight: 500; white-space: nowrap; transition: color 0.4s; }
+    .cprice.updated { color: #16a34a; }
+    .cart-totals { padding: 10px 16px 6px; border-top: 1px solid #ebebeb; }
+    .trow { display: flex; justify-content: space-between; font-size: 13px; color: #777; padding: 3px 0; }
+    .trow.grand { font-size: 16px; font-weight: 700; color: #1a1a1a; border-top: 1px solid #e8e8e8; margin-top: 6px; padding-top: 8px; }
+    .pay-btn {
+      margin: 8px 14px 14px; background: #1a1a1a; color: #fff; border: none;
+      border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700;
+      cursor: pointer; width: calc(100% - 28px); letter-spacing: 0.01em;
+    }
+
+    /* ────── NAV BAR ────── */
+    .nav-bar {
+      height: 52px; background: #ffffff; border-top: 1px solid #e8e8e8;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 16px; gap: 4px; flex-shrink: 0;
+    }
+    .nav-item {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 7px 16px; border-radius: 20px;
+      font-size: 13px; font-weight: 500; color: #bbb; cursor: pointer;
+    }
+    .nav-item.active { background: #efefef; color: #1a1a1a; }
+    .nav-icon { font-size: 17px; line-height: 1; }
+
+    /* ────── DIM ────── */
+    .dim {
+      position: absolute; inset: 0; background: rgba(0,0,0,0);
+      pointer-events: none; transition: background 0.35s; z-index: 50;
+    }
+    .dim.on { background: rgba(0,0,0,0.35); pointer-events: all; }
+
+    /* ════════════════════════════
+       HELP SHEET (bottom sheet)
+    ════════════════════════════ */
+    .help-sheet {
+      position: absolute;
+      bottom: 52px; left: 50%;
+      transform: translateX(-50%) translateY(calc(100% + 60px));
+      width: 560px;
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      border: 1px solid #e0e0e0;
+      border-bottom: none;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.12);
+      transition: transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      z-index: 101;
+    }
+    .help-sheet.show { transform: translateX(-50%) translateY(0); }
+
+    .hs-handle { width: 36px; height: 4px; background: #e0e0e0; border-radius: 2px; margin: 10px auto 0; }
+    .hs-inner { padding: 16px 22px 24px; }
+
+    .hs-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+    }
+    .hs-ai-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(0,0,0,0.05); border-radius: 20px;
+      padding: 3px 10px 3px 7px; font-size: 11px; font-weight: 700; color: #555;
+    }
+    .hs-ai-dot { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; }
+    .hs-title { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .hs-sub   { font-size: 12px; color: #aaa; margin-top: 2px; }
+
+    .hs-input-wrap {
+      background: #f7f7f7;
+      border: 1.5px solid #e8e8e8;
+      border-radius: 14px;
+      padding: 13px 16px;
+      margin-bottom: 14px;
+      cursor: text;
+      transition: border-color 0.2s;
+    }
+    .hs-input-wrap:hover { border-color: #d0d0d0; }
+
+    .hs-message {
+      font-size: 14px;
+      color: #1a1a1a;
+      line-height: 1.6;
+      min-height: 60px;
+    }
+    .hs-cursor {
+      display: inline-block;
+      width: 2px; height: 15px;
+      background: #1a1a1a;
+      margin-left: 1px;
+      vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .hs-footer {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hs-hint { font-size: 12px; color: #bbb; }
+    .hs-btns { display: flex; gap: 8px; }
+    .hs-cancel {
+      background: #f0f0f0; border: none; border-radius: 10px;
+      padding: 10px 16px; font-size: 13px; font-weight: 600; color: #777;
+      cursor: pointer; font-family: inherit;
+    }
+    .hs-send {
+      background: #1a1a1a; color: #fff; border: none; border-radius: 10px;
+      padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: opacity 0.12s;
+    }
+    .hs-send:hover { opacity: 0.85; }
+
+    /* ════════════════════════════
+       UPDATE NOTIFICATION PILL
+    ════════════════════════════ */
+    .update-pill {
+      position: absolute;
+      bottom: 62px; left: 50%;
+      transform: translateX(-50%) translateY(calc(100% + 20px));
+      background: #1a1a1a;
+      border-radius: 18px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 440px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.28);
+      opacity: 0;
+      transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .update-pill.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    .up-icon-wrap { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
+    .up-icon {
+      width: 34px; height: 34px; background: rgba(255,255,255,0.1);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .up-dot {
+      position: absolute; top: -2px; right: -2px;
+      width: 10px; height: 10px; background: #f59e0b;
+      border-radius: 50%; border: 2px solid #1a1a1a;
+    }
+    .up-body { flex: 1; min-width: 0; }
+    .up-title { font-size: 13px; font-weight: 700; color: #fff; }
+    .up-sub   { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+    .up-btns  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .up-later {
+      background: none; border: none; color: rgba(255,255,255,0.45);
+      font-size: 13px; cursor: pointer; font-family: inherit; padding: 0;
+    }
+    .up-later:hover { color: rgba(255,255,255,0.75); }
+    .up-view {
+      background: #fff; color: #1a1a1a; border: none; border-radius: 9px;
+      padding: 8px 15px; font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; white-space: nowrap;
+    }
+
+    /* ════════════════════════════
+       SUMMARY CARD (staff sees AI findings)
+    ════════════════════════════ */
+    .summary-card-wrap {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 150; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .summary-card-wrap.show { opacity: 1; pointer-events: all; }
+
+    .summary-card {
+      background: #fff; border-radius: 20px; width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.10);
+      overflow: hidden;
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .summary-card-wrap.show .summary-card { transform: scale(1) translateY(0); }
+
+    .sc-header {
+      background: #fafafa; border-bottom: 1px solid #f0f0f0;
+      padding: 16px 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sc-ai-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 20px; padding: 3px 10px 3px 7px;
+      font-size: 11px; font-weight: 700; color: #16a34a;
+    }
+    .sc-ai-dot { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; }
+    .sc-header-title { font-size: 13px; font-weight: 700; color: #1a1a1a; }
+    .sc-header-sub   { font-size: 11px; color: #aaa; margin-top: 1px; }
+
+    .sc-body { padding: 18px 20px; }
+
+    .sc-finding {
+      background: #fffbeb; border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 12px; padding: 13px 15px; margin-bottom: 14px;
+    }
+    .sc-finding-label {
+      font-size: 10px; font-weight: 800; color: #d97706;
+      letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .sc-finding-text { font-size: 13px; color: #1a1a1a; line-height: 1.55; }
+    .sc-finding-text strong { color: #d97706; }
+
+    .sc-action {
+      background: #f0fdf4; border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 12px; padding: 13px 15px; margin-bottom: 18px;
+    }
+    .sc-action-label {
+      font-size: 10px; font-weight: 800; color: #16a34a;
+      letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .sc-action-text { font-size: 13px; color: #1a1a1a; line-height: 1.55; }
+
+    .sc-permission-note {
+      display: flex; align-items: flex-start; gap: 9px;
+      background: rgba(0,0,0,0.03); border-radius: 10px;
+      padding: 11px 13px; margin-bottom: 18px;
+      font-size: 12px; color: #666; line-height: 1.5;
+    }
+    .sc-perm-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+    .sc-btns { display: flex; flex-direction: column; gap: 9px; }
+    .sc-send-btn {
+      background: #1a1a1a; color: #fff; border: none; border-radius: 12px;
+      padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: opacity 0.12s;
+    }
+    .sc-send-btn:hover { opacity: 0.85; }
+    .sc-dismiss-btn {
+      background: none; border: none; color: #aaa; font-size: 13px;
+      cursor: pointer; padding: 8px; font-family: inherit;
+    }
+
+    /* ── Sent confirmation — shown alone when card collapses ── */
+    .sc-sent-top {
+      display: none;
+      background: rgba(34,197,94,0.07);
+      padding: 20px 24px;
+      border-radius: 20px;
+    }
+    .sc-sent-top.show { display: block; }
+    .sc-sent-text { font-size: 14px; font-weight: 700; color: #16a34a; }
+    .sc-sent-sub  { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* ── Next step — standalone box below the card ── */
+    .sc-next-step {
+      display: none;
+      align-items: center; justify-content: space-between;
+      background: #f0f0f0;
+      border: 1px solid #e4e4e4;
+      padding: 11px 18px;
+      border-radius: 12px;
+      width: 420px;
+      margin-top: 10px;
+    }
+    .sc-next-step.show { display: flex; }
+    .sc-next-label {
+      font-size: 11px; font-weight: 700; color: #bbb;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .sc-next-btn {
+      background: none; border: none; font-size: 13px; font-weight: 700;
+      color: #555; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .sc-next-btn:hover { color: #1a1a1a; }
+
+    /* ════════════════════════════
+       INTRO OVERLAY
+    ════════════════════════════ */
+    .intro {
+      position: absolute; inset: 0; background: rgba(8,8,10,0.94);
+      border-radius: 16px; z-index: 500;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 13px; transition: opacity 0.4s;
+    }
+    .intro-chip {
+      background: rgba(245,158,11,0.14); border: 1px solid rgba(245,158,11,0.28);
+      color: #f59e0b; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+      padding: 4px 12px; border-radius: 20px; text-transform: uppercase;
+    }
+    .intro-h { font-size: 24px; font-weight: 700; color: #fff; text-align: center; line-height: 1.25; }
+    .intro-p { font-size: 14px; color: rgba(255,255,255,0.48); text-align: center; max-width: 440px; line-height: 1.6; }
+    .intro-flow { display: flex; align-items: center; gap: 8px; margin: 4px 0; flex-wrap: wrap; justify-content: center; }
+    .flow-step {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; padding: 6px 12px; font-size: 12px; color: rgba(255,255,255,0.55);
+    }
+    .flow-arrow { color: rgba(255,255,255,0.2); font-size: 14px; }
+    .start-btn {
+      background: #f59e0b; color: #fff; border: none; border-radius: 12px;
+      padding: 13px 36px; font-size: 15px; font-weight: 700; cursor: pointer;
+      margin-top: 4px; font-family: inherit; transition: opacity 0.12s;
+    }
+    .start-btn:hover { opacity: 0.88; }
+    .intro-hint { font-size: 12px; color: rgba(255,255,255,0.18); margin-top: 2px; }
+
+    /* ══════════════════════════════
+       ACT 2 — MANAGER PHONE
+    ══════════════════════════════ */
+    .act2-label {
+      color: rgba(0,0,0,0.35);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: 0.04em;
+    }
+    .act2-divider {
+      width: 1px; height: 12px; background: rgba(0,0,0,0.2);
+    }
+
+    .phone-frame {
+      width: 390px;
+      height: 760px;
+      background: #fff;
+      border-radius: 44px;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.12),
+        0 0 0 10px #1a1a1a,
+        0 0 0 11px rgba(0,0,0,0.15),
+        0 32px 80px rgba(0,0,0,0.28);
+    }
+
+    /* Phone notch */
+    .phone-notch {
+      position: absolute;
+      top: 12px; left: 50%;
+      transform: translateX(-50%);
+      width: 120px; height: 34px;
+      background: #1a1a1a;
+      border-radius: 20px;
+      z-index: 100;
+    }
+
+    .phone-screen {
+      height: 100%;
+      background: #f2f2f7;
+      display: flex;
+      flex-direction: column;
+      padding-top: 58px;
+    }
+
+    /* Phone status bar */
+    .phone-status {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      flex-shrink: 0;
+    }
+    .phone-time { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .phone-icons { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+    /* Notification card on phone */
+    .phone-content { flex: 1; padding: 8px 16px; overflow-y: auto; }
+
+    .ph-section-label {
+      font-size: 13px; font-weight: 700; color: #888;
+      padding: 8px 4px 6px; letter-spacing: -0.01em;
+    }
+
+    .ph-notif-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    .ph-notif-header {
+      display: flex; align-items: center; gap: 9px;
+      padding: 12px 14px 8px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .ph-app-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: #1a1a1a; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0;
+    }
+    .ph-app-name { font-size: 12px; font-weight: 700; color: #1a1a1a; flex: 1; }
+    .ph-notif-time { font-size: 11px; color: #aaa; }
+
+    .ph-notif-body { padding: 12px 14px 14px; }
+    .ph-notif-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+    .ph-notif-text  { font-size: 13px; color: #555; line-height: 1.55; margin-bottom: 14px; }
+
+    .ph-detail-row {
+      display: flex; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid #f4f4f4;
+      font-size: 13px;
+    }
+    .ph-detail-row:last-of-type { border-bottom: none; margin-bottom: 14px; }
+    .ph-detail-key   { color: #aaa; font-weight: 500; }
+    .ph-detail-value { color: #1a1a1a; font-weight: 600; }
+    .ph-detail-value.highlight { color: #d97706; }
+    .ph-detail-value.green { color: #16a34a; }
+
+    .ph-action-btns {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .ph-decline-btn {
+      background: #f0f0f0; color: #666; border: none; border-radius: 12px;
+      padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: background 0.12s;
+    }
+    .ph-decline-btn:hover { background: #e5e5e5; }
+    .ph-approve-btn {
+      background: #16a34a; color: #fff; border: none; border-radius: 12px;
+      padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: opacity 0.12s;
+    }
+    .ph-approve-btn:hover { opacity: 0.85; }
+
+    /* Approved state */
+    .ph-approved {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 14px;
+      text-align: center;
+      gap: 8px;
+    }
+    .ph-approved.show { display: flex; }
+    .ph-check-circle {
+      width: 56px; height: 56px; background: #16a34a;
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; margin-bottom: 4px;
+    }
+    .ph-approved-title { font-size: 17px; font-weight: 700; color: #1a1a1a; }
+    .ph-approved-sub   { font-size: 13px; color: #aaa; line-height: 1.5; }
+
+    /* "See on staff POS" link */
+    .ph-back-btn {
+      background: #1a1a1a; color: #fff; border: none; border-radius: 12px;
+      padding: 13px 28px; font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: inherit; margin-top: 10px;
+    }
+
+    /* ── Price update toast (back on staff POS after approval) ── */
+    .price-updated-toast {
+      position: absolute;
+      bottom: 62px; left: 50%;
+      transform: translateX(-50%) translateY(calc(100% + 20px));
+      background: #fff;
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: flex; align-items: center; gap: 9px;
+      font-size: 13px; font-weight: 600; color: #16a34a;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+      z-index: 400; pointer-events: none; white-space: nowrap;
+    }
+    .price-updated-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="proto-label">
+  <span class="proto-badge">Prototype</span>
+  Seamless Handoff · Use Case: Wrong Item Price → Background Diagnosis → Manager Approval
+</div>
+
+<!-- ══════ ACT 1 — STAFF DEVICE ══════ -->
+<div class="act active" id="act1">
+
+  <div class="device" id="device">
+
+    <!-- INTRO -->
+    <div class="intro" id="intro">
+      <div class="intro-chip">Seamless Handoff · Phase 3</div>
+      <div class="intro-h">Wrong Price Reported<br>Background Fix + Manager Handoff</div>
+      <div class="intro-p">Staff flag a pricing issue mid-service. Square AI investigates in the background, then routes an approval request directly to the manager. No interruption to checkout.</div>
+      <div class="intro-flow">
+        <div class="flow-step">Staff reports issue</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">AI works in background</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Manager notified</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Price updated</div>
+      </div>
+      <button class="start-btn" onclick="startProto()">Start prototype →</button>
+      <div class="intro-hint">Scenario · Morningside Coffee · Vanessa M. · Register 1</div>
+    </div>
+
+    <div class="pos-layout">
+
+      <!-- STATUS BAR -->
+      <div class="status-bar">
+        <span class="s-time-main">12:37 PM</span>
+        <span class="s-date">Mon Jul 3</span>
+
+        <!-- AI working indicator (hidden initially) -->
+        <div class="ai-working-pill" id="aiWorkingPill">
+          <div class="ai-spinner"></div>
+          Square AI investigating...
+        </div>
+
+        <div class="s-right">
+          <!-- Help button -->
+          <button class="help-btn" id="helpBtn" onclick="openHelpSheet()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17" stroke-width="3"/>
+            </svg>
+            Report issue
+          </button>
+
+          <!-- Normal icons -->
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="#1a1a1a">
+            <rect x="0" y="8" width="3" height="4" rx="0.5"/>
+            <rect x="4.5" y="5" width="3" height="7" rx="0.5"/>
+            <rect x="9" y="2" width="3" height="10" rx="0.5"/>
+            <rect x="13.5" y="0" width="3" height="12" rx="0.5"/>
+          </svg>
+          <svg width="16" height="12" viewBox="0 0 24 18" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round">
+            <path d="M1.5 7C6.5 2.5 17.5 2.5 22.5 7"/>
+            <path d="M5 11c3.8-3.8 11.2-3.8 14 0"/>
+            <path d="M9 15c1.8-1.8 5.2-1.8 6 0"/>
+            <circle cx="12" cy="17.5" r="1.5" fill="#1a1a1a" stroke="none"/>
+          </svg>
+          <span class="s-battery-pct">100%</span>
+          <svg width="22" height="12" viewBox="0 0 26 13" fill="none">
+            <rect x="0.6" y="0.6" width="21" height="11.8" rx="2.8" stroke="#1a1a1a" stroke-width="1.2"/>
+            <rect x="22" y="3.5" width="2.5" height="6" rx="1.2" fill="#1a1a1a"/>
+            <rect x="2" y="2" width="18" height="9" rx="1.8" fill="#1a1a1a"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- MAIN AREA -->
+      <div class="pos-main">
+
+        <!-- ITEMS PANEL -->
+        <div class="items-panel">
+          <div class="cats-bar">
+            <button class="cat active">Drinks</button>
+            <button class="cat">Savory</button>
+            <button class="cat">Pastry</button>
+            <button class="cat">Library</button>
+            <button class="cat">Keypad</button>
+          </div>
+          <div class="items-grid">
+            <div class="item photo p-dk-brown"><div class="iname">All drinks</div></div>
+            <div class="item photo p-dk-warm"><div class="iname">Seasonal</div></div>
+            <div class="item photo p-dk-hot"><div class="iname">Hot</div></div>
+            <div class="item photo p-dk-cool"><div class="iname">Cold</div></div>
+            <div class="item cream"><div class="iname">House coffee</div><div class="iprice" id="houseCoffeePrice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Flat white</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Fomo</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Latte</div><div class="iprice">$9.00</div></div>
+            <div class="item photo p-dk-amber"><div class="iname">Miso pumpkin</div><div class="iprice">$9.00</div></div>
+            <div class="item photo p-dk-olive"><div class="iname">Pistachio forno</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Terroir trick</div><div class="iprice">$9.00</div></div>
+            <div class="item photo p-dk-rust"><div class="iname">Tamarind cider</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Chocolate chai</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Caramel corn</div><div class="iprice">$9.00</div></div>
+            <div class="item photo p-dk-purple"><div class="iname">Violet shade</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Pour over</div><div class="iprice">$9.00</div></div>
+            <div class="item photo p-dk-green"><div class="iname">Mystic matcha</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Cold brew</div><div class="iprice">$9.00</div></div>
+            <div class="item cream"><div class="iname">Full leaf tea</div><div class="iprice">$7.50</div></div>
+            <div class="item cream"><div class="iname">Onyx delight</div><div class="iprice">$8.00</div></div>
+          </div>
+        </div>
+
+        <!-- CART -->
+        <div class="cart-panel">
+          <div class="cart-head">
+            <div>
+              <div class="cart-title">3 items</div>
+              <div class="cart-sub">For here</div>
+            </div>
+            <button class="cart-menu-btn">···</button>
+          </div>
+          <div class="cart-list">
+            <div class="cart-row">
+              <div class="cart-row-top">
+                <div class="cname">House coffee ×2</div>
+                <div class="cprice" id="cartHousePrice">$18.00</div>
+              </div>
+              <div class="cmod">12oz · Single origin</div>
+            </div>
+            <div class="cart-row">
+              <div class="cart-row-top">
+                <div class="cname">Flat white</div>
+                <div class="cprice">$9.00</div>
+              </div>
+              <div class="cmod">Large · Oat milk</div>
+            </div>
+            <div class="cart-row">
+              <div class="cart-row-top">
+                <div class="cname">Pour over</div>
+                <div class="cprice">$9.00</div>
+              </div>
+              <div class="cmod">Costa Rica Las Lajas</div>
+            </div>
+          </div>
+          <div class="cart-totals">
+            <div class="trow"><span>Subtotal</span><span id="subtotalAmt">$36.00</span></div>
+            <div class="trow"><span>Tax</span><span id="taxAmt">$1.80</span></div>
+            <div class="trow grand"><span>Total</span><span id="totalAmt">$37.80</span></div>
+          </div>
+          <button class="pay-btn">Pay</button>
+        </div>
+
+      </div><!-- /pos-main -->
+
+      <!-- NAV BAR -->
+      <div class="nav-bar">
+        <div class="nav-item active">
+          <span class="nav-icon">⊞</span>
+          <span>Checkout</span>
+        </div>
+        <div class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+          </svg>
+        </div>
+        <div class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </div>
+      </div>
+
+    </div><!-- /pos-layout -->
+
+    <!-- DIM -->
+    <div class="dim" id="dim"></div>
+
+    <!-- ── HELP SHEET ── -->
+    <div class="help-sheet" id="helpSheet">
+      <div class="hs-handle"></div>
+      <div class="hs-inner">
+        <div class="hs-header">
+          <div class="hs-ai-badge"><div class="hs-ai-dot"></div> Square AI</div>
+          <div>
+            <div class="hs-title">Report an issue</div>
+            <div class="hs-sub">Describe what's wrong. I'll look into it in the background</div>
+          </div>
+        </div>
+        <div class="hs-input-wrap">
+          <div class="hs-message" id="hsMessage"><span class="hs-cursor"></span></div>
+        </div>
+        <div class="hs-footer">
+          <div class="hs-hint" id="hsHint">Typing...</div>
+          <div class="hs-btns">
+            <button class="hs-cancel" onclick="closeHelpSheet()">Cancel</button>
+            <button class="hs-send" id="hsSendBtn" style="opacity:0.4; pointer-events:none;" onclick="sendReport()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── UPDATE NOTIFICATION PILL ── -->
+    <div class="update-pill" id="updatePill">
+      <div class="up-icon-wrap">
+        <div class="up-icon">⚙️</div>
+        <div class="up-dot"></div>
+      </div>
+      <div class="up-body">
+        <div class="up-title">Update found · Manager approval needed</div>
+        <div class="up-sub">House coffee price mismatch</div>
+      </div>
+      <div class="up-btns">
+        <button class="up-later" onclick="dismissPill()">Later</button>
+        <button class="up-view" onclick="showSummaryCard()">Review</button>
+      </div>
+    </div>
+
+    <!-- ── AI SUMMARY CARD ── -->
+    <div class="summary-card-wrap" id="summaryWrap">
+      <div class="summary-card">
+        <!-- Sent confirmation — shown at top after request is sent -->
+        <div class="sc-sent-top" id="scSentTop">
+          <div class="sc-sent-text">Request sent to Sarah's phone</div>
+        </div>
+
+        <div class="sc-header" id="scHeader">
+          <div>
+            <div class="sc-ai-badge"><div class="sc-ai-dot"></div> Square AI</div>
+          </div>
+          <div style="margin-left:8px;">
+            <div class="sc-header-title">Issue identified</div>
+            <div class="sc-header-sub">House coffee · Menu price mismatch</div>
+          </div>
+        </div>
+        <div class="sc-body" id="scBodyInner">
+          <div class="sc-finding">
+            <div class="sc-finding-label">What I found</div>
+            <div class="sc-finding-text">House coffee is listed at <strong>$9.00</strong> but your menu history shows the approved price is <strong>$8.50</strong>. It was updated incorrectly on Jan 15 during a bulk menu edit.</div>
+          </div>
+          <div class="sc-action">
+            <div class="sc-action-label">Recommended fix</div>
+            <div class="sc-action-text">Update House coffee from $9.00 → $8.50 in the active menu. This requires manager approval to apply.</div>
+          </div>
+          <div class="sc-btns" id="scBtns">
+            <button class="sc-send-btn" onclick="sendToManager()">Send approval request to Sarah</button>
+            <button class="sc-dismiss-btn" onclick="dismissSummary()">Dismiss</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Next step box — separate small box below the card -->
+      <div class="sc-next-step" id="scNextStep">
+        <div class="sc-next-label">Next step</div>
+        <button class="sc-next-btn" onclick="goToAct2()">See manager's view →</button>
+      </div>
+
+    </div>
+
+
+    <!-- PRICE UPDATED TOAST (shown after manager approves and we return) -->
+    <div class="price-updated-toast" id="priceToast">
+      ✓ House coffee updated to $8.50 · Approved by Sarah
+    </div>
+
+  </div><!-- /device -->
+</div><!-- /act1 -->
+
+
+<!-- ══════ ACT 2 — MANAGER PHONE ══════ -->
+<div class="act" id="act2">
+
+  <div class="act2-label">
+    <span class="proto-badge">Act 2</span>
+    <div class="act2-divider"></div>
+    Manager's phone — Sarah receives the approval request
+  </div>
+
+  <div class="phone-frame" id="phoneFrame">
+    <div class="phone-notch"></div>
+    <div class="phone-screen">
+
+      <!-- Phone status bar -->
+      <div class="phone-status">
+        <span class="phone-time">12:39 PM</span>
+        <div class="phone-icons">
+          <svg width="15" height="11" viewBox="0 0 17 12" fill="#1a1a1a">
+            <rect x="0" y="8" width="3" height="4" rx="0.5"/>
+            <rect x="4.5" y="5" width="3" height="7" rx="0.5"/>
+            <rect x="9" y="2" width="3" height="10" rx="0.5"/>
+            <rect x="13.5" y="0" width="3" height="12" rx="0.5"/>
+          </svg>
+          <svg width="14" height="11" viewBox="0 0 24 18" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round">
+            <path d="M1.5 7C6.5 2.5 17.5 2.5 22.5 7"/>
+            <path d="M5 11c3.8-3.8 11.2-3.8 14 0"/>
+            <path d="M9 15c1.8-1.8 5.2-1.8 6 0"/>
+            <circle cx="12" cy="17.5" r="1.5" fill="#1a1a1a" stroke="none"/>
+          </svg>
+          <svg width="19" height="11" viewBox="0 0 26 13" fill="none">
+            <rect x="0.6" y="0.6" width="21" height="11.8" rx="2.8" stroke="#1a1a1a" stroke-width="1.2"/>
+            <rect x="22" y="3.5" width="2.5" height="6" rx="1.2" fill="#1a1a1a"/>
+            <rect x="2" y="2" width="18" height="9" rx="1.8" fill="#1a1a1a"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Notification content -->
+      <div class="phone-content">
+        <div class="ph-section-label">Notification</div>
+
+        <div class="ph-notif-card">
+          <div class="ph-notif-header">
+            <div class="ph-app-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <span class="ph-app-name">Square POS · Register 1</span>
+            <span class="ph-notif-time">now</span>
+          </div>
+
+          <div class="ph-notif-body">
+            <div class="ph-notif-title">Price approval needed</div>
+            <div class="ph-notif-text">Vanessa flagged a pricing issue during checkout. Square AI identified a mismatch and needs your approval to correct it.</div>
+
+            <div class="ph-detail-row">
+              <span class="ph-detail-key">Item</span>
+              <span class="ph-detail-value">House coffee</span>
+            </div>
+            <div class="ph-detail-row">
+              <span class="ph-detail-key">Current price</span>
+              <span class="ph-detail-value highlight">$9.00 (incorrect)</span>
+            </div>
+            <div class="ph-detail-row">
+              <span class="ph-detail-key">Approved price</span>
+              <span class="ph-detail-value green">$8.50</span>
+            </div>
+            <div class="ph-detail-row">
+              <span class="ph-detail-key">Root cause</span>
+              <span class="ph-detail-value">Bulk edit on Jan 15</span>
+            </div>
+
+            <!-- Action buttons (shown before approval) -->
+            <div class="ph-action-btns" id="phActionBtns">
+              <button class="ph-decline-btn" onclick="declineApproval()">Decline</button>
+              <button class="ph-approve-btn" onclick="approveChange()">Approve</button>
+            </div>
+
+            <!-- Approved state -->
+            <div class="ph-approved" id="phApproved">
+              <div class="ph-check-circle">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div class="ph-approved-title">Change approved</div>
+              <div class="ph-approved-sub">House coffee updated to $8.50.<br>Vanessa's register will reflect this now.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Back to staff view — separate box below phone, shown after approval -->
+  <div class="sc-next-step" id="backToStaffBox" style="margin-top:16px;">
+    <div class="sc-next-label">Next step</div>
+    <button class="sc-next-btn" onclick="returnToStaff()">← Back to staff view</button>
+  </div>
+
+</div><!-- /act2 -->
+
+<script>
+  /* ── Intro ── */
+  function startProto() {
+    const intro = document.getElementById('intro');
+    intro.style.opacity = '0';
+    setTimeout(() => intro.style.display = 'none', 400);
+  }
+
+  /* ── Help sheet ── */
+  function openHelpSheet() {
+    document.getElementById('dim').classList.add('on');
+    document.getElementById('helpSheet').classList.add('show');
+    setTimeout(typeMessage, 400);
+  }
+
+  function closeHelpSheet() {
+    document.getElementById('dim').classList.remove('on');
+    document.getElementById('helpSheet').classList.remove('show');
+  }
+
+  /* Typewriter effect for the report message */
+  const reportText = "The price for House coffee seems wrong. A customer told me it was $8.50 yesterday but it's showing $9.00 on my screen. How do I change the price?";
+  let charIndex = 0;
+  let typeTimer;
+
+  function typeMessage() {
+    const el = document.getElementById('hsMessage');
+    if (charIndex < reportText.length) {
+      el.innerHTML = reportText.slice(0, charIndex + 1) + '<span class="hs-cursor"></span>';
+      charIndex++;
+      typeTimer = setTimeout(typeMessage, charIndex < 10 ? 60 : 28);
+    } else {
+      el.innerHTML = reportText;
+      document.getElementById('hsHint').textContent = '';
+      const btn = document.getElementById('hsSendBtn');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    }
+  }
+
+  /* ── Send report → background mode ── */
+  function sendReport() {
+    closeHelpSheet();
+    charIndex = 0;
+    // Show working pill in status bar
+    setTimeout(() => {
+      document.getElementById('aiWorkingPill').classList.add('show');
+      // Hide help button
+      document.getElementById('helpBtn').style.opacity = '0.4';
+      document.getElementById('helpBtn').style.pointerEvents = 'none';
+    }, 300);
+
+    // After delay, show update pill
+    setTimeout(() => {
+      document.getElementById('aiWorkingPill').classList.remove('show');
+      document.getElementById('updatePill').classList.add('show');
+    }, 4000);
+  }
+
+  /* ── Update pill ── */
+  function dismissPill() {
+    document.getElementById('updatePill').classList.remove('show');
+  }
+
+  function showSummaryCard() {
+    document.getElementById('updatePill').classList.remove('show');
+    document.getElementById('dim').classList.add('on');
+    document.getElementById('summaryWrap').classList.add('show');
+  }
+
+  function dismissSummary() {
+    document.getElementById('summaryWrap').classList.remove('show');
+    document.getElementById('dim').classList.remove('on');
+  }
+
+  /* ── Send to manager ── */
+  function sendToManager() {
+    document.getElementById('scHeader').style.display = 'none';
+    document.getElementById('scBodyInner').style.display = 'none';
+    document.getElementById('scSentTop').classList.add('show');
+    document.getElementById('scNextStep').classList.add('show');
+  }
+
+  /* ── Transition to Act 2 ── */
+  function goToAct2() {
+    document.getElementById('summaryWrap').classList.remove('show');
+    document.getElementById('dim').classList.remove('on');
+    // Fade out act1, fade in act2
+    const act1 = document.getElementById('act1');
+    const act2 = document.getElementById('act2');
+    act1.style.opacity = '0';
+    setTimeout(() => {
+      act1.classList.remove('active');
+      act2.classList.add('active');
+    }, 450);
+  }
+
+  /* ── Manager approves ── */
+  function approveChange() {
+    document.getElementById('phActionBtns').style.display = 'none';
+    document.getElementById('phApproved').classList.add('show');
+    document.getElementById('backToStaffBox').classList.add('show');
+  }
+
+  function declineApproval() {
+    // Just visual — decline resets to action buttons with a note
+    alert('Declined. (In a real build this would notify Vanessa.)');
+  }
+
+  /* ── Return to staff POS ── */
+  function returnToStaff() {
+    const act1 = document.getElementById('act1');
+    const act2 = document.getElementById('act2');
+    act2.style.opacity = '0';
+    setTimeout(() => {
+      act2.classList.remove('active');
+      act2.style.opacity = '';
+      act1.classList.add('active');
+      act1.style.opacity = '';
+
+      // Update price on POS
+      document.getElementById('houseCoffeePrice').textContent = '$8.50';
+      document.getElementById('cartHousePrice').textContent = '$17.00';
+      document.getElementById('subtotalAmt').textContent = '$35.00';
+      document.getElementById('taxAmt').textContent = '$1.75';
+      document.getElementById('totalAmt').textContent = '$36.75';
+
+      // Show success toast
+      setTimeout(() => {
+        const toast = document.getElementById('priceToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 4000);
+      }, 400);
+
+      // Re-enable help button
+      document.getElementById('helpBtn').style.opacity = '1';
+      document.getElementById('helpBtn').style.pointerEvents = 'auto';
+
+    }, 450);
+  }
+</script>
+</body>
+</html>
