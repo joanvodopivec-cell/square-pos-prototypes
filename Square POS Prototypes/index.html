@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Square POS Â· AI Help Prototypes</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      color: #1a1a1a;
+    }
+
+    /* ââ HEADER ââ */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e8e8e8;
+      padding: 0 48px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .sq-logo {
+      width: 32px; height: 32px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    .header-divider {
+      width: 1px; height: 18px;
+      background: #e0e0e0;
+    }
+    .header-sub {
+      font-size: 13px;
+      color: #aaa;
+      font-weight: 500;
+    }
+
+    .header-badge {
+      background: rgba(200,120,0,0.10);
+      color: #a06000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+
+    /* ââ HERO ââ */
+    .hero {
+      padding: 56px 48px 40px;
+      max-width: 900px;
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #aaa;
+      margin-bottom: 12px;
+    }
+
+    .hero-h {
+      font-size: 36px;
+      font-weight: 800;
+      color: #1a1a1a;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+    }
+
+    .hero-p {
+      font-size: 15px;
+      color: #777;
+      line-height: 1.7;
+      max-width: 580px;
+      margin-bottom: 28px;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: #999;
+      font-weight: 500;
+    }
+    .meta-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #ddd;
+      flex-shrink: 0;
+    }
+    .meta-dot.green  { background: #22c55e; }
+    .meta-dot.amber  { background: #f59e0b; }
+    .meta-dot.blue   { background: #3b82f6; }
+
+    /* ââ SECTION ââ */
+    .section {
+      padding: 0 48px 56px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #bbb;
+      margin-bottom: 16px;
+    }
+
+    /* ââ PROTOTYPE CARDS ââ */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      max-width: 1100px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 18px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+    .card:hover {
+      box-shadow: 0 12px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+      transform: translateY(-2px);
+      border-color: #d8d8d8;
+    }
+
+    /* Card top strip with phase color */
+    .card-strip {
+      height: 5px;
+      width: 100%;
+    }
+    .strip-phase1 { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .strip-phase2 { background: linear-gradient(90deg, #22c55e, #4ade80); }
+    .strip-phase3 { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    /* Card preview thumbnail */
+    .card-preview {
+      height: 160px;
+      background: #f4f4f4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    /* Mini POS mockup inside preview */
+    .mini-pos {
+      width: 220px;
+      height: 130px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .mini-bar {
+      height: 14px;
+      background: #f7f7f7;
+      border-bottom: 1px solid #ebebeb;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .mini-bar-dot { width: 4px; height: 4px; border-radius: 50%; background: #e0e0e0; }
+    .mini-content {
+      flex: 1;
+      display: flex;
+      gap: 0;
+    }
+    .mini-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3px;
+      padding: 4px;
+      background: #f4f4f4;
+    }
+    .mini-tile {
+      border-radius: 4px;
+      background: #e8dccf;
+    }
+    .mini-tile.dark { background: #2a1810; }
+    .mini-cart {
+      width: 52px;
+      background: #fff;
+      border-left: 1px solid #ebebeb;
+      padding: 4px;
+    }
+    .mini-cart-line {
+      height: 5px;
+      background: #f0f0f0;
+      border-radius: 2px;
+      margin-bottom: 3px;
+    }
+    .mini-pay {
+      height: 9px;
+      background: #1a1a1a;
+      border-radius: 3px;
+      margin-top: 5px;
+    }
+    .mini-nav {
+      height: 14px;
+      background: #fff;
+      border-top: 1px solid #ebebeb;
+      flex-shrink: 0;
+    }
+
+    /* Floating notification pill on preview */
+    .mini-pill {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      border-radius: 10px;
+      padding: 5px 10px;
+      font-size: 8px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+
+    .mini-pill.green {
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: #16a34a;
+    }
+
+    .mini-guided-border {
+      box-shadow: 0 0 0 2px #22c55e, 0 4px 20px rgba(0,0,0,0.12);
+    }
+
+    /* Search pill on preview */
+    .mini-search {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      background: #fff;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 3px 8px;
+      font-size: 8px;
+      font-weight: 600;
+      color: #888;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* Phone mini mockup */
+    .mini-phone {
+      width: 72px;
+      height: 128px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 0 0 4px #1a1a1a, 0 8px 24px rgba(0,0,0,0.2);
+      overflow: hidden;
+      position: absolute;
+      right: 28px;
+      bottom: 14px;
+    }
+    .mini-phone-notch {
+      width: 28px; height: 8px;
+      background: #1a1a1a;
+      border-radius: 4px;
+      margin: 4px auto;
+    }
+    .mini-phone-content { padding: 2px 4px; }
+    .mini-phone-card {
+      background: #f7f7f7;
+      border-radius: 5px;
+      padding: 4px;
+    }
+    .mini-phone-line {
+      height: 4px; background: #e0e0e0;
+      border-radius: 2px; margin-bottom: 2px;
+    }
+    .mini-phone-line.short { width: 60%; }
+    .mini-phone-approve {
+      height: 8px; background: #16a34a;
+      border-radius: 3px; margin-top: 4px;
+    }
+
+    /* ââ CARD BODY ââ */
+    .card-body { padding: 20px 22px 22px; flex: 1; display: flex; flex-direction: column; }
+
+    .card-phase {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .phase-1 { color: #3b82f6; }
+    .phase-2 { color: #22c55e; }
+    .phase-3 { color: #f59e0b; }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1a1a1a;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
+      flex: 1;
+      margin-bottom: 18px;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      background: #f4f4f4;
+      color: #777;
+      border-radius: 6px;
+      padding: 3px 9px;
+    }
+
+    .card-cta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 14px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .cta-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #aaa;
+    }
+
+    .cta-arrow {
+      width: 30px; height: 30px;
+      background: #f4f4f4;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .card:hover .cta-arrow { background: #1a1a1a; }
+    .card:hover .cta-arrow svg { stroke: #fff; }
+    .cta-arrow svg { transition: stroke 0.15s; }
+
+    /* ââ RESEARCH NOTE ââ */
+    .research-note {
+      max-width: 1100px;
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 14px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-top: 0;
+    }
+    .rn-icon {
+      width: 36px; height: 36px;
+      background: #f4f4f4;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .rn-title { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 3px; }
+    .rn-text  { font-size: 12px; color: #999; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="sq-logo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <span class="header-title">Square POS</span>
+      <div class="header-divider"></div>
+      <span class="header-sub">AI Help Prototypes</span>
+    </div>
+    <div class="header-badge">Design Research Â· dscout Oct 2025</div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">Prototype Collection</div>
+    <div class="hero-h">AI-powered Help<br>in Square POS</div>
+    <div class="hero-p">Three interactive prototypes exploring how AI can support front-line staff â from silent background fixes to guided walkthroughs and seamless manager handoffs.</div>
+    <div class="hero-meta">
+      <div class="meta-item"><div class="meta-dot green"></div> 3 prototypes</div>
+      <div class="meta-item"><div class="meta-dot amber"></div> Morningside Coffee scenario</div>
+      <div class="meta-item"><div class="meta-dot blue"></div> Staff: Vanessa M. Â· Manager: Sarah</div>
+    </div>
+  </div>
+
+  <!-- PROTOTYPES -->
+  <div class="section">
+    <div class="section-label">Prototypes</div>
+    <div class="cards">
+
+      <!-- Card 1: Magic Fix -->
+      <a class="card" href="magic-fix-prototype.html">
+        <div class="card-strip strip-phase1"></div>
+        <div class="card-preview">
+          <div class="mini-pos">
+            <div class="mini-bar">
+              <div class="mini-bar-dot"></div>
+              <div class="mini-bar-dot"></div>
+              <div class="mini-bar-dot"></div>
+            </div>
+            <div class="mini-content">
+              <div class="mini-grid">
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile dark"></div>
+              </div>
+              <div class="mini-cart">
+                <div class="mini-cart-line"></div>
+                <div class="mini-cart-line" style="width:70%"></div>
+                <div class="mini-cart-line" style="width:55%"></div>
+                <div class="mini-pay"></div>
+              </div>
+            </div>
+            <div class="mini-nav"></div>
+          </div>
+          <div class="mini-pill">Receipt printer disconnected Â· Resolve now</div>
+        </div>
+        <div class="card-body">
+          <div class="card-phase phase-1">Phase 1 Â· Magic Fix</div>
+          <div class="card-title">Printer Disconnect<br>Auto-Resolution</div>
+          <div class="card-desc">Square AI silently detects a disconnected receipt printer mid-service and resolves it automatically â staff stay in flow.</div>
+          <div class="card-tags">
+            <span class="tag">Auto-fix</span>
+            <span class="tag">Background</span>
+            <span class="tag">Hardware</span>
+          </div>
+          <div class="card-cta">
+            <span class="cta-label">Open prototype</span>
+            <div class="cta-arrow">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 2: Advanced Command -->
+      <a class="card" href="advanced-command-prototype.html">
+        <div class="card-strip strip-phase2"></div>
+        <div class="card-preview">
+          <div class="mini-pos mini-guided-border">
+            <div class="mini-bar">
+              <div class="mini-bar-dot"></div>
+              <div class="mini-bar-dot"></div>
+              <div class="mini-bar-dot"></div>
+            </div>
+            <div class="mini-content">
+              <div class="mini-grid">
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile dark"></div>
+              </div>
+              <div class="mini-cart">
+                <div class="mini-cart-line"></div>
+                <div class="mini-cart-line" style="width:70%"></div>
+                <div class="mini-cart-line" style="width:55%"></div>
+                <div class="mini-pay"></div>
+              </div>
+            </div>
+            <div class="mini-nav" style="background:#111;"></div>
+          </div>
+          <div class="mini-search">
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+            How to...
+          </div>
+          <div class="mini-pill green">Square AI Â· Guided session active</div>
+        </div>
+        <div class="card-body">
+          <div class="card-phase phase-2">Phase 2 Â· Advanced Command</div>
+          <div class="card-title">Apply a Discount<br>Guided Walkthrough</div>
+          <div class="card-desc">Staff tap a search bar, pick a how-to, and Square AI walks them through the UI step by step with live green highlights.</div>
+          <div class="card-tags">
+            <span class="tag">Guided session</span>
+            <span class="tag">Discounts</span>
+            <span class="tag">How-to</span>
+          </div>
+          <div class="card-cta">
+            <span class="cta-label">Open prototype</span>
+            <div class="cta-arrow">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 3: Seamless Handoff -->
+      <a class="card" href="seamless-handoff-prototype.html">
+        <div class="card-strip strip-phase3"></div>
+        <div class="card-preview">
+          <div class="mini-pos" style="position:absolute; left: 26px; top: 14px; width: 180px; height: 118px;">
+            <div class="mini-bar">
+              <div class="mini-bar-dot"></div>
+              <div class="mini-bar-dot"></div>
+              <div style="margin-left:auto; width:40px; height:6px; background:#f0f0f0; border-radius:3px;"></div>
+            </div>
+            <div class="mini-content">
+              <div class="mini-grid">
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile dark"></div>
+                <div class="mini-tile"></div>
+                <div class="mini-tile"></div>
+              </div>
+              <div class="mini-cart">
+                <div class="mini-cart-line"></div>
+                <div class="mini-cart-line" style="width:70%"></div>
+                <div class="mini-pay"></div>
+              </div>
+            </div>
+            <div class="mini-nav"></div>
+          </div>
+          <div class="mini-phone">
+            <div class="mini-phone-notch"></div>
+            <div class="mini-phone-content">
+              <div class="mini-phone-card">
+                <div class="mini-phone-line"></div>
+                <div class="mini-phone-line short"></div>
+                <div class="mini-phone-line"></div>
+                <div class="mini-phone-approve"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-phase phase-3">Phase 3 Â· Seamless Handoff</div>
+          <div class="card-title">Wrong Price Report<br>Manager Approval</div>
+          <div class="card-desc">Staff describe a pricing issue, AI investigates in the background, then sends a one-tap approval request directly to the manager's phone.</div>
+          <div class="card-tags">
+            <span class="tag">Handoff</span>
+            <span class="tag">Permissions</span>
+            <span class="tag">Pricing</span>
+          </div>
+          <div class="card-cta">
+            <span class="cta-label">Open prototype</span>
+            <div class="cta-arrow">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- RESEARCH NOTE -->
+  <div class="section" style="padding-top:0;">
+    <div class="research-note">
+      <div class="rn-icon">ð</div>
+      <div>
+        <div class="rn-title">Based on dscout Diary Study Â· Oct 2025</div>
+        <div class="rn-text">Prototypes are grounded in real findings from front-line Square POS staff. Study: "AI-powered Help in POS: What Staff Need & How We Deliver." Scenario: Morningside Coffee Â· Vanessa M. (Staff) Â· Sarah (Manager).</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
